@@ -1,7 +1,8 @@
 import pygame
 
 from game.player import Player
-from game.traffic import Car, Log, make_car
+from game.traffic import Log, make_car
+from game.high_scores import save_score, get_high_scores
 
 
 # ============================================================
@@ -29,14 +30,13 @@ WATER_BOTTOM = 320
 
 LOG_Y = 260
 
-# Player gets a small amount of time to find a log
-# after entering the water.
 WATER_GRACE_FRAMES = 15
 
 
 class GameEngine:
 
     def __init__(self):
+
         pygame.init()
 
         self.screen = pygame.display.set_mode(
@@ -60,31 +60,32 @@ class GameEngine:
             bold=True
         )
 
+        self.small_font = pygame.font.SysFont(
+            "arial",
+            20
+        )
+
         self.reset()
 
     # ========================================================
-    # RESET GAME
+    # RESET
     # ========================================================
 
     def reset(self):
 
-        # Player
         self.player = Player(
             WIDTH // 2,
             HEIGHT - 80
         )
 
-        # Cars
         self.cars = []
 
-        # ----------------------------------------------------
+        # ====================================================
         # TASK 2 - MOVING LOGS
-        #
-        # Wide overlapping logs make the lane playable.
-        # They still move continuously.
-        # ----------------------------------------------------
+        # ====================================================
 
         self.logs = [
+
             Log(
                 -80,
                 LOG_Y,
@@ -107,17 +108,14 @@ class GameEngine:
             )
         ]
 
-        # The log the player is currently riding
         self.riding_log = None
 
-        # Water timer
         self.water_timer = 0
 
-        # Car spawning
+        # Cars
         self.timer = 0
         self.spawn_interval = 50
 
-        # Difficulty
         self.speed = 3
 
         # Score
@@ -129,12 +127,19 @@ class GameEngine:
 
         self.lives = 3
 
-        # Game states
         self.game_over = False
         self.won = False
 
+        # ====================================================
+        # TASK 3 - HIGH SCORE
+        # ====================================================
+
+        self.score_saved = False
+
+        self.high_scores = get_high_scores()
+
     # ========================================================
-    # PLAYER RESPAWN
+    # RESPAWN
     # ========================================================
 
     def respawn_player(self):
@@ -148,7 +153,7 @@ class GameEngine:
         self.water_timer = 0
 
     # ========================================================
-    # TASK 2 - WATER CHECK
+    # WATER CHECK
     # ========================================================
 
     def is_in_water(self):
@@ -160,7 +165,7 @@ class GameEngine:
         )
 
     # ========================================================
-    # TASK 2 - HORIZONTAL OVERLAP
+    # LOG HORIZONTAL OVERLAP
     # ========================================================
 
     def horizontal_overlap(self, log):
@@ -172,7 +177,7 @@ class GameEngine:
         )
 
     # ========================================================
-    # TASK 2 - FIND LOG
+    # FIND LOG
     # ========================================================
 
     def find_log_under_player(self):
@@ -182,7 +187,6 @@ class GameEngine:
             if not self.horizontal_overlap(log):
                 continue
 
-            # Vertical overlap
             if (
                 self.player.rect.bottom >= log.rect.top
                 and
@@ -193,14 +197,13 @@ class GameEngine:
         return None
 
     # ========================================================
-    # TASK 2 - BOARD LOG
+    # BOARD LOG
     # ========================================================
 
     def board_log(self, log):
 
         self.riding_log = log
 
-        # Put player's feet exactly on top of log
         self.player.rect.bottom = log.rect.top
 
         self.water_timer = 0
@@ -223,27 +226,44 @@ class GameEngine:
 
             self.game_over = True
 
+            self.save_final_score()
+
         else:
 
             self.respawn_player()
 
     # ========================================================
-    # TASK 1 - CAR COLLISION
+    # TASK 3 - SAVE FINAL SCORE
+    # ========================================================
+
+    def save_final_score(self):
+
+        if self.score_saved:
+            return
+
+        self.high_scores = save_score(
+            self.score
+        )
+
+        self.score_saved = True
+
+    # ========================================================
+    # CAR COLLISION
     # ========================================================
 
     def check_car_collisions(self):
 
-        # Don't collide with cars while inside the water.
         if self.is_in_water():
             return
 
         for car in self.cars:
 
-            if self.player.rect.colliderect(car.rect):
+            if self.player.rect.colliderect(
+                car.rect
+            ):
 
                 self.lose_life()
 
-                # Remove the car that hit player
                 if car in self.cars:
                     self.cars.remove(car)
 
@@ -255,8 +275,6 @@ class GameEngine:
 
     def update_logs(self):
 
-        # If player is riding a log, remember their position
-        # relative to that log.
         riding = self.riding_log
 
         relative_x = None
@@ -268,12 +286,10 @@ class GameEngine:
                 - riding.rect.x
             )
 
-        # Move every log
         for log in self.logs:
 
             log.update(WIDTH)
 
-        # Carry player with the log
         if riding is not None:
 
             if relative_x is not None:
@@ -283,7 +299,6 @@ class GameEngine:
                     + relative_x
                 )
 
-                # Keep player inside screen
                 if self.player.rect.right < 0:
                     self.player.rect.left = 0
 
@@ -291,14 +306,13 @@ class GameEngine:
                     self.player.rect.right = WIDTH
 
     # ========================================================
-    # UPDATE PLAYER + LOG
+    # UPDATE PLAYER
     # ========================================================
 
     def update_player(self, keys):
 
         old_bottom = self.player.rect.bottom
 
-        # Player movement
         self.player.move(
             keys,
             0,
@@ -308,39 +322,34 @@ class GameEngine:
         new_bottom = self.player.rect.bottom
 
         # ----------------------------------------------------
-        # If already riding a log
+        # Already riding a log
         # ----------------------------------------------------
 
         if self.riding_log is not None:
 
             log = self.riding_log
 
-            # If player moves horizontally completely
-            # away from the log, stop riding it.
             if not self.horizontal_overlap(log):
 
                 self.riding_log = None
 
-            # If player goes down far below the log,
-            # they have stepped/fallen off.
             elif self.player.rect.top > log.rect.bottom + 15:
 
                 self.riding_log = None
 
             else:
 
-                # Keep player standing on the log
-                # unless they intentionally move upward.
                 if (
                     self.player.rect.bottom >= log.rect.top
                     and
-                    self.player.rect.bottom <= log.rect.bottom + 15
+                    self.player.rect.bottom
+                    <= log.rect.bottom + 15
                 ):
+
                     self.player.rect.bottom = log.rect.top
 
         # ----------------------------------------------------
-        # If NOT riding a log, check whether player can board
-        # one.
+        # Try to board a log
         # ----------------------------------------------------
 
         if self.riding_log is None:
@@ -350,50 +359,50 @@ class GameEngine:
                 if not self.horizontal_overlap(log):
                     continue
 
-                # Normal rectangle contact
                 vertical_contact = (
-                    self.player.rect.bottom >= log.rect.top
+                    self.player.rect.bottom
+                    >= log.rect.top
                     and
-                    self.player.rect.top <= log.rect.bottom
+                    self.player.rect.top
+                    <= log.rect.bottom
                 )
 
-                # Detect crossing the top of the log
                 landing_contact = (
                     old_bottom >= log.rect.top
                     and
                     new_bottom <= log.rect.top + 18
                 )
 
-                if vertical_contact or landing_contact:
+                if (
+                    vertical_contact
+                    or
+                    landing_contact
+                ):
 
                     self.board_log(log)
 
                     break
 
     # ========================================================
-    # UPDATE WATER
+    # WATER
     # ========================================================
 
     def update_water(self):
 
-        # If riding a log, completely safe.
         if self.riding_log is not None:
 
             self.water_timer = 0
 
             return
 
-        # If player is not in water, reset timer.
         if not self.is_in_water():
 
             self.water_timer = 0
 
             return
 
-        # Player is in water without a log.
         self.water_timer += 1
 
-        # Give player a short window to board a moving log.
         if self.water_timer >= WATER_GRACE_FRAMES:
 
             self.lose_life()
@@ -421,7 +430,6 @@ class GameEngine:
 
         self.timer = 0
 
-        # Choose random lane
         lane = pygame.time.get_ticks() % LANES
 
         car = make_car(
@@ -433,7 +441,7 @@ class GameEngine:
         self.cars.append(car)
 
     # ========================================================
-    # REMOVE OFF-SCREEN CARS
+    # REMOVE CARS
     # ========================================================
 
     def remove_offscreen_cars(self):
@@ -445,12 +453,11 @@ class GameEngine:
         ]
 
     # ========================================================
-    # SCORE / DIFFICULTY
+    # SCORE
     # ========================================================
 
     def update_score(self):
 
-        # Score based on player progress
         progress = HEIGHT - self.player.rect.y
 
         new_score = max(
@@ -462,14 +469,13 @@ class GameEngine:
 
             self.score = new_score
 
-        # Increase difficulty gradually
         self.speed = min(
             7,
             3 + self.score // 100
         )
 
     # ========================================================
-    # CHECK WIN
+    # WIN
     # ========================================================
 
     def check_win(self):
@@ -478,8 +484,10 @@ class GameEngine:
 
             self.won = True
 
+            self.save_final_score()
+
     # ========================================================
-    # UPDATE EVERYTHING
+    # UPDATE
     # ========================================================
 
     def update(self):
@@ -489,38 +497,28 @@ class GameEngine:
 
         keys = pygame.key.get_pressed()
 
-        # 1. Move logs
         self.update_logs()
 
-        # 2. Move player
         self.update_player(keys)
 
-        # 3. Water / log system
         self.update_water()
 
-        # If water collision caused game over,
-        # don't continue this frame.
         if self.game_over:
             return
 
-        # 4. Cars
         self.spawn_cars()
 
         self.update_cars()
 
-        # 5. Car collision
         self.check_car_collisions()
 
         if self.game_over:
             return
 
-        # 6. Remove cars
         self.remove_offscreen_cars()
 
-        # 7. Score
         self.update_score()
 
-        # 8. Win
         self.check_win()
 
     # ========================================================
@@ -529,26 +527,21 @@ class GameEngine:
 
     def draw_road(self):
 
-        # Grass
         self.screen.fill(
             BG
-        )
-
-        # Road area
-        road_rect = pygame.Rect(
-            0,
-            0,
-            WIDTH,
-            HEIGHT
         )
 
         pygame.draw.rect(
             self.screen,
             (55, 55, 55),
-            road_rect
+            pygame.Rect(
+                0,
+                0,
+                WIDTH,
+                HEIGHT
+            )
         )
 
-        # Road lane markings
         for x in range(
             LANE_W,
             WIDTH,
@@ -590,7 +583,6 @@ class GameEngine:
             water_rect
         )
 
-        # Water waves
         for y in range(
             WATER_TOP + 15,
             WATER_BOTTOM,
@@ -664,7 +656,103 @@ class GameEngine:
         )
 
     # ========================================================
-    # DRAW GAME OVER
+    # TASK 3 - HIGH SCORE TABLE
+    # ========================================================
+
+    def draw_high_scores(self):
+
+        # Panel
+        panel = pygame.Rect(
+            145,
+            100,
+            350,
+            390
+        )
+
+        pygame.draw.rect(
+            self.screen,
+            (35, 35, 35),
+            panel,
+            border_radius=12
+        )
+
+        pygame.draw.rect(
+            self.screen,
+            (220, 220, 220),
+            panel,
+            3,
+            border_radius=12
+        )
+
+        # Title
+        title = self.font.render(
+            "TOP 5 HIGH SCORES",
+            True,
+            (255, 255, 255)
+        )
+
+        title_rect = title.get_rect(
+            center=(WIDTH // 2, 145)
+        )
+
+        self.screen.blit(
+            title,
+            title_rect
+        )
+
+        # Scores
+        if not self.high_scores:
+
+            empty = self.small_font.render(
+                "No scores yet",
+                True,
+                (200, 200, 200)
+            )
+
+            empty_rect = empty.get_rect(
+                center=(WIDTH // 2, 220)
+            )
+
+            self.screen.blit(
+                empty,
+                empty_rect
+            )
+
+        else:
+
+            for index, score in enumerate(
+                self.high_scores[:5]
+            ):
+
+                text = self.font.render(
+                    f"{index + 1}.    {score}",
+                    True,
+                    (255, 255, 255)
+                )
+
+                self.screen.blit(
+                    text,
+                    (210, 190 + index * 45)
+                )
+
+        # Restart instruction
+        restart = self.small_font.render(
+            "Press R to restart",
+            True,
+            (200, 200, 200)
+        )
+
+        restart_rect = restart.get_rect(
+            center=(WIDTH // 2, 450)
+        )
+
+        self.screen.blit(
+            restart,
+            restart_rect
+        )
+
+    # ========================================================
+    # GAME OVER
     # ========================================================
 
     def draw_game_over(self):
@@ -691,7 +779,7 @@ class GameEngine:
         )
 
         text_rect = text.get_rect(
-            center=(WIDTH // 2, HEIGHT // 2 - 30)
+            center=(WIDTH // 2, 60)
         )
 
         self.screen.blit(
@@ -699,23 +787,10 @@ class GameEngine:
             text_rect
         )
 
-        restart = self.font.render(
-            "Press R to restart",
-            True,
-            (255, 255, 255)
-        )
-
-        restart_rect = restart.get_rect(
-            center=(WIDTH // 2, HEIGHT // 2 + 35)
-        )
-
-        self.screen.blit(
-            restart,
-            restart_rect
-        )
+        self.draw_high_scores()
 
     # ========================================================
-    # DRAW WIN
+    # WIN
     # ========================================================
 
     def draw_win(self):
@@ -742,7 +817,7 @@ class GameEngine:
         )
 
         text_rect = text.get_rect(
-            center=(WIDTH // 2, HEIGHT // 2 - 30)
+            center=(WIDTH // 2, 60)
         )
 
         self.screen.blit(
@@ -750,23 +825,10 @@ class GameEngine:
             text_rect
         )
 
-        score = self.font.render(
-            f"Final Score: {self.score}",
-            True,
-            (255, 255, 255)
-        )
-
-        score_rect = score.get_rect(
-            center=(WIDTH // 2, HEIGHT // 2 + 35)
-        )
-
-        self.screen.blit(
-            score,
-            score_rect
-        )
+        self.draw_high_scores()
 
     # ========================================================
-    # DRAW EVERYTHING
+    # DRAW
     # ========================================================
 
     def draw(self):
@@ -775,7 +837,6 @@ class GameEngine:
 
         self.draw_water()
 
-        # Logs must be drawn before player
         self.draw_logs()
 
         self.draw_cars()
@@ -797,7 +858,7 @@ class GameEngine:
         pygame.display.flip()
 
     # ========================================================
-    # MAIN GAME LOOP
+    # MAIN LOOP
     # ========================================================
 
     def run(self):
@@ -812,7 +873,6 @@ class GameEngine:
 
                     running = False
 
-                # Restart
                 if (
                     event.type == pygame.KEYDOWN
                     and event.key == pygame.K_r
