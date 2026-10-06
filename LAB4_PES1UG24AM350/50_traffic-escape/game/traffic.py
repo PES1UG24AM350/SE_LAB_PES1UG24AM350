@@ -16,7 +16,9 @@ COLORS = [
 
 
 class Car:
+
     def __init__(self, lane_x, y, direction, speed):
+
         self.rect = pygame.Rect(
             lane_x + 10,
             y,
@@ -29,15 +31,19 @@ class Car:
         self.color = random.choice(COLORS)
 
     def update(self):
+
         self.rect.y += self.direction * self.speed
 
     def off_screen(self, height):
+
         return (
             self.rect.top > height + 100
-            or self.rect.bottom < -100
+            or
+            self.rect.bottom < -100
         )
 
-    def draw(self, screen):
+    def draw(self, screen, night=False):
+
         # Car body
         pygame.draw.rect(
             screen,
@@ -46,7 +52,7 @@ class Car:
             border_radius=8
         )
 
-        # Window
+        # Windows
         pygame.draw.rect(
             screen,
             (180, 220, 240),
@@ -64,10 +70,12 @@ class Car:
             self.rect.x + 6,
             self.rect.right - 16
         ]:
+
             for wy in [
                 self.rect.y + 4,
                 self.rect.bottom - 16
             ]:
+
                 pygame.draw.rect(
                     screen,
                     (30, 30, 30),
@@ -80,8 +88,140 @@ class Car:
                     border_radius=3
                 )
 
+        # ====================================================
+        # TASK 4 - NIGHT HEADLIGHTS
+        # ====================================================
+
+        if night:
+
+            # Front of the car depends on direction.
+            if self.direction > 0:
+
+                headlights_y = self.rect.bottom - 8
+
+            else:
+
+                headlights_y = self.rect.top + 8
+
+            left_headlight = pygame.Rect(
+                self.rect.x + 10,
+                headlights_y - 5,
+                12,
+                8
+            )
+
+            right_headlight = pygame.Rect(
+                self.rect.right - 22,
+                headlights_y - 5,
+                12,
+                8
+            )
+
+            pygame.draw.rect(
+                screen,
+                (255, 245, 150),
+                left_headlight,
+                border_radius=3
+            )
+
+            pygame.draw.rect(
+                screen,
+                (255, 245, 150),
+                right_headlight,
+                border_radius=3
+            )
+
+            # Headlight beams
+            if self.direction > 0:
+
+                beam_points_left = [
+                    (
+                        self.rect.x + 10,
+                        self.rect.bottom
+                    ),
+                    (
+                        self.rect.x - 15,
+                        self.rect.bottom + 100
+                    ),
+                    (
+                        self.rect.x + 30,
+                        self.rect.bottom + 100
+                    )
+                ]
+
+                beam_points_right = [
+                    (
+                        self.rect.right - 22,
+                        self.rect.bottom
+                    ),
+                    (
+                        self.rect.right - 5,
+                        self.rect.bottom + 100
+                    ),
+                    (
+                        self.rect.right - 45,
+                        self.rect.bottom + 100
+                    )
+                ]
+
+            else:
+
+                beam_points_left = [
+                    (
+                        self.rect.x + 10,
+                        self.rect.top
+                    ),
+                    (
+                        self.rect.x - 15,
+                        self.rect.top - 100
+                    ),
+                    (
+                        self.rect.x + 30,
+                        self.rect.top - 100
+                    )
+                ]
+
+                beam_points_right = [
+                    (
+                        self.rect.right - 22,
+                        self.rect.top
+                    ),
+                    (
+                        self.rect.right - 5,
+                        self.rect.top - 100
+                    ),
+                    (
+                        self.rect.right - 45,
+                        self.rect.top - 100
+                    )
+                ]
+
+            # Transparent beam surfaces
+            beam_surface = pygame.Surface(
+                screen.get_size(),
+                pygame.SRCALPHA
+            )
+
+            pygame.draw.polygon(
+                beam_surface,
+                (255, 245, 150, 35),
+                beam_points_left
+            )
+
+            pygame.draw.polygon(
+                beam_surface,
+                (255, 245, 150, 35),
+                beam_points_right
+            )
+
+            screen.blit(
+                beam_surface,
+                (0, 0)
+            )
+
 
 def make_car(lane_idx, height, speed):
+
     x = lane_idx * LANE_W
 
     direction = 1 if lane_idx % 2 == 0 else -1
@@ -100,16 +240,11 @@ def make_car(lane_idx, height, speed):
 
 
 class Log:
-    """
-    Moving log used for Task 2.
-
-    The player can stand on the log and gets
-    carried along with it.
-    """
 
     HEIGHT = 44
 
     def __init__(self, x, y, width, speed):
+
         self.rect = pygame.Rect(
             x,
             y,
@@ -120,20 +255,21 @@ class Log:
         self.speed = speed
 
     def update(self, screen_width):
+
         self.rect.x += self.speed
 
-        # Wrap from right to left
         if self.speed > 0:
+
             if self.rect.left > screen_width:
                 self.rect.right = 0
 
-        # Wrap from left to right
         else:
+
             if self.rect.right < 0:
                 self.rect.left = screen_width
 
     def draw(self, screen):
-        # Main wooden body
+
         pygame.draw.rect(
             screen,
             (120, 65, 30),
@@ -141,7 +277,6 @@ class Log:
             border_radius=12
         )
 
-        # Wooden highlight
         pygame.draw.line(
             screen,
             (170, 100, 55),
@@ -156,7 +291,6 @@ class Log:
             4
         )
 
-        # Second wooden line
         pygame.draw.line(
             screen,
             (95, 48, 22),
@@ -171,7 +305,6 @@ class Log:
             3
         )
 
-        # Left end
         pygame.draw.circle(
             screen,
             (80, 40, 20),
@@ -182,7 +315,6 @@ class Log:
             8
         )
 
-        # Right end
         pygame.draw.circle(
             screen,
             (80, 40, 20),

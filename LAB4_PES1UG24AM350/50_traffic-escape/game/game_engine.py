@@ -5,10 +5,6 @@ from game.traffic import Log, make_car
 from game.high_scores import save_score, get_high_scores
 
 
-# ============================================================
-# GAME SETTINGS
-# ============================================================
-
 LANES = 8
 
 WIDTH = 640
@@ -16,13 +12,11 @@ HEIGHT = 600
 
 FPS = 60
 
-BG = (30, 150, 70)
-
 LANE_W = 80
 
 
 # ============================================================
-# TASK 2 - WATER / LOG SETTINGS
+# TASK 2
 # ============================================================
 
 WATER_TOP = 220
@@ -31,6 +25,13 @@ WATER_BOTTOM = 320
 LOG_Y = 260
 
 WATER_GRACE_FRAMES = 15
+
+
+# ============================================================
+# TASK 4
+# ============================================================
+
+DAY_DURATION = 10 * FPS
 
 
 class GameEngine:
@@ -80,9 +81,9 @@ class GameEngine:
 
         self.cars = []
 
-        # ====================================================
-        # TASK 2 - MOVING LOGS
-        # ====================================================
+        # ----------------------------------------------------
+        # TASK 2 - LOGS
+        # ----------------------------------------------------
 
         self.logs = [
 
@@ -121,25 +122,26 @@ class GameEngine:
         # Score
         self.score = 0
 
-        # ====================================================
-        # TASK 1 - LIVES
-        # ====================================================
-
+        # Task 1
         self.lives = 3
 
         self.game_over = False
         self.won = False
 
-        # ====================================================
-        # TASK 3 - HIGH SCORE
-        # ====================================================
-
+        # Task 3
         self.score_saved = False
-
         self.high_scores = get_high_scores()
 
+        # ====================================================
+        # TASK 4 - DAY/NIGHT
+        # ====================================================
+
+        self.day_night_timer = 0
+
+        self.is_night = False
+
     # ========================================================
-    # RESPAWN
+    # TASK 1 - RESPAWN
     # ========================================================
 
     def respawn_player(self):
@@ -153,7 +155,7 @@ class GameEngine:
         self.water_timer = 0
 
     # ========================================================
-    # WATER CHECK
+    # TASK 2 - WATER
     # ========================================================
 
     def is_in_water(self):
@@ -164,10 +166,6 @@ class GameEngine:
             self.player.rect.top < WATER_BOTTOM
         )
 
-    # ========================================================
-    # LOG HORIZONTAL OVERLAP
-    # ========================================================
-
     def horizontal_overlap(self, log):
 
         return (
@@ -175,30 +173,6 @@ class GameEngine:
             and
             self.player.rect.left < log.rect.right
         )
-
-    # ========================================================
-    # FIND LOG
-    # ========================================================
-
-    def find_log_under_player(self):
-
-        for log in self.logs:
-
-            if not self.horizontal_overlap(log):
-                continue
-
-            if (
-                self.player.rect.bottom >= log.rect.top
-                and
-                self.player.rect.top <= log.rect.bottom
-            ):
-                return log
-
-        return None
-
-    # ========================================================
-    # BOARD LOG
-    # ========================================================
 
     def board_log(self, log):
 
@@ -233,7 +207,7 @@ class GameEngine:
             self.respawn_player()
 
     # ========================================================
-    # TASK 3 - SAVE FINAL SCORE
+    # TASK 3 - SAVE SCORE
     # ========================================================
 
     def save_final_score(self):
@@ -270,7 +244,7 @@ class GameEngine:
                 return
 
     # ========================================================
-    # UPDATE LOGS
+    # LOG UPDATE
     # ========================================================
 
     def update_logs(self):
@@ -292,21 +266,19 @@ class GameEngine:
 
         if riding is not None:
 
-            if relative_x is not None:
+            self.player.rect.x = (
+                riding.rect.x
+                + relative_x
+            )
 
-                self.player.rect.x = (
-                    riding.rect.x
-                    + relative_x
-                )
+            if self.player.rect.right < 0:
+                self.player.rect.left = 0
 
-                if self.player.rect.right < 0:
-                    self.player.rect.left = 0
-
-                if self.player.rect.left > WIDTH:
-                    self.player.rect.right = WIDTH
+            if self.player.rect.left > WIDTH:
+                self.player.rect.right = WIDTH
 
     # ========================================================
-    # UPDATE PLAYER
+    # PLAYER UPDATE
     # ========================================================
 
     def update_player(self, keys):
@@ -321,10 +293,7 @@ class GameEngine:
 
         new_bottom = self.player.rect.bottom
 
-        # ----------------------------------------------------
-        # Already riding a log
-        # ----------------------------------------------------
-
+        # Already on log
         if self.riding_log is not None:
 
             log = self.riding_log
@@ -348,10 +317,7 @@ class GameEngine:
 
                     self.player.rect.bottom = log.rect.top
 
-        # ----------------------------------------------------
-        # Try to board a log
-        # ----------------------------------------------------
-
+        # Try to board log
         if self.riding_log is None:
 
             for log in self.logs:
@@ -360,11 +326,9 @@ class GameEngine:
                     continue
 
                 vertical_contact = (
-                    self.player.rect.bottom
-                    >= log.rect.top
+                    self.player.rect.bottom >= log.rect.top
                     and
-                    self.player.rect.top
-                    <= log.rect.bottom
+                    self.player.rect.top <= log.rect.bottom
                 )
 
                 landing_contact = (
@@ -384,7 +348,7 @@ class GameEngine:
                     break
 
     # ========================================================
-    # WATER
+    # WATER UPDATE
     # ========================================================
 
     def update_water(self):
@@ -408,7 +372,7 @@ class GameEngine:
             self.lose_life()
 
     # ========================================================
-    # UPDATE CARS
+    # CAR UPDATE
     # ========================================================
 
     def update_cars(self):
@@ -418,7 +382,7 @@ class GameEngine:
             car.update()
 
     # ========================================================
-    # SPAWN CARS
+    # CAR SPAWN
     # ========================================================
 
     def spawn_cars(self):
@@ -487,7 +451,21 @@ class GameEngine:
             self.save_final_score()
 
     # ========================================================
-    # UPDATE
+    # TASK 4 - DAY/NIGHT TIMER
+    # ========================================================
+
+    def update_day_night(self):
+
+        self.day_night_timer += 1
+
+        if self.day_night_timer >= DAY_DURATION:
+
+            self.day_night_timer = 0
+
+            self.is_night = not self.is_night
+
+    # ========================================================
+    # MAIN UPDATE
     # ========================================================
 
     def update(self):
@@ -497,6 +475,10 @@ class GameEngine:
 
         keys = pygame.key.get_pressed()
 
+        # Task 4
+        self.update_day_night()
+
+        # Task 2
         self.update_logs()
 
         self.update_player(keys)
@@ -506,6 +488,7 @@ class GameEngine:
         if self.game_over:
             return
 
+        # Traffic
         self.spawn_cars()
 
         self.update_cars()
@@ -517,8 +500,10 @@ class GameEngine:
 
         self.remove_offscreen_cars()
 
+        # Score
         self.update_score()
 
+        # Win
         self.check_win()
 
     # ========================================================
@@ -527,19 +512,16 @@ class GameEngine:
 
     def draw_road(self):
 
-        self.screen.fill(
-            BG
-        )
+        if self.is_night:
 
-        pygame.draw.rect(
-            self.screen,
-            (55, 55, 55),
-            pygame.Rect(
-                0,
-                0,
-                WIDTH,
-                HEIGHT
-            )
+            road_color = (20, 20, 28)
+
+        else:
+
+            road_color = (55, 55, 55)
+
+        self.screen.fill(
+            road_color
         )
 
         for x in range(
@@ -548,9 +530,16 @@ class GameEngine:
             LANE_W
         ):
 
+            line_color = (
+                (80, 80, 95)
+                if self.is_night
+                else
+                (210, 210, 210)
+            )
+
             pygame.draw.line(
                 self.screen,
-                (210, 210, 210),
+                line_color,
                 (x, 0),
                 (x, WATER_TOP),
                 2
@@ -558,7 +547,7 @@ class GameEngine:
 
             pygame.draw.line(
                 self.screen,
-                (210, 210, 210),
+                line_color,
                 (x, WATER_BOTTOM),
                 (x, HEIGHT),
                 2
@@ -570,17 +559,29 @@ class GameEngine:
 
     def draw_water(self):
 
-        water_rect = pygame.Rect(
-            0,
-            WATER_TOP,
-            WIDTH,
-            WATER_BOTTOM - WATER_TOP
+        water_color = (
+            (15, 65, 120)
+            if self.is_night
+            else
+            (35, 120, 210)
         )
 
         pygame.draw.rect(
             self.screen,
-            (35, 120, 210),
-            water_rect
+            water_color,
+            pygame.Rect(
+                0,
+                WATER_TOP,
+                WIDTH,
+                WATER_BOTTOM - WATER_TOP
+            )
+        )
+
+        wave_color = (
+            (50, 110, 170)
+            if self.is_night
+            else
+            (100, 180, 240)
         )
 
         for y in range(
@@ -597,7 +598,7 @@ class GameEngine:
 
                 pygame.draw.line(
                     self.screen,
-                    (100, 180, 240),
+                    wave_color,
                     (x, y),
                     (x + 25, y),
                     2
@@ -624,11 +625,35 @@ class GameEngine:
         for car in self.cars:
 
             car.draw(
-                self.screen
+                self.screen,
+                self.is_night
             )
 
     # ========================================================
-    # DRAW HUD
+    # TASK 4 - NIGHT OVERLAY
+    # ========================================================
+
+    def draw_night_overlay(self):
+
+        if not self.is_night:
+            return
+
+        overlay = pygame.Surface(
+            (WIDTH, HEIGHT),
+            pygame.SRCALPHA
+        )
+
+        overlay.fill(
+            (5, 10, 35, 75)
+        )
+
+        self.screen.blit(
+            overlay,
+            (0, 0)
+        )
+
+    # ========================================================
+    # HUD
     # ========================================================
 
     def draw_hud(self):
@@ -655,13 +680,34 @@ class GameEngine:
             (500, 10)
         )
 
+        # Day/Night indicator
+        if self.is_night:
+
+            time_text = self.small_font.render(
+                "NIGHT",
+                True,
+                (255, 245, 150)
+            )
+
+        else:
+
+            time_text = self.small_font.render(
+                "DAY",
+                True,
+                (255, 255, 255)
+            )
+
+        self.screen.blit(
+            time_text,
+            (WIDTH // 2 - 25, 12)
+        )
+
     # ========================================================
-    # TASK 3 - HIGH SCORE TABLE
+    # HIGH SCORES
     # ========================================================
 
     def draw_high_scores(self):
 
-        # Panel
         panel = pygame.Rect(
             145,
             100,
@@ -684,7 +730,6 @@ class GameEngine:
             border_radius=12
         )
 
-        # Title
         title = self.font.render(
             "TOP 5 HIGH SCORES",
             True,
@@ -700,7 +745,6 @@ class GameEngine:
             title_rect
         )
 
-        # Scores
         if not self.high_scores:
 
             empty = self.small_font.render(
@@ -735,7 +779,6 @@ class GameEngine:
                     (210, 190 + index * 45)
                 )
 
-        # Restart instruction
         restart = self.small_font.render(
             "Press R to restart",
             True,
@@ -828,7 +871,7 @@ class GameEngine:
         self.draw_high_scores()
 
     # ========================================================
-    # DRAW
+    # DRAW EVERYTHING
     # ========================================================
 
     def draw(self):
@@ -845,6 +888,9 @@ class GameEngine:
             self.screen
         )
 
+        # Night overlay goes before HUD/game-over UI
+        self.draw_night_overlay()
+
         self.draw_hud()
 
         if self.game_over:
@@ -858,7 +904,7 @@ class GameEngine:
         pygame.display.flip()
 
     # ========================================================
-    # MAIN LOOP
+    # GAME LOOP
     # ========================================================
 
     def run(self):
